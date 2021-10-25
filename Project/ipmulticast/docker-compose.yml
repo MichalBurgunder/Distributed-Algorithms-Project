@@ -1,0 +1,55 @@
+version: "3.8"
+services:
+  sender-1:
+    container_name: sender-1
+    image: da1-ipmcast
+    volumes:
+      - .:/app
+    environment:
+      APP_ROLE: sender
+      APP_MULTICAST_PORT: 5000
+      APP_MULTICAST_ADDR: "239.0.0.1"
+      ID: 1
+  sender-2:
+    container_name: sender-2
+    image: da1-ipmcast
+    volumes:
+      - .:/app
+    environment:
+      APP_ROLE: sender
+      APP_MULTICAST_PORT: 5000
+      APP_MULTICAST_ADDR: "239.0.0.1"
+      ID: 2
+
+  receiver-1:
+    container_name: receiver-1
+    image: da1-ipmcast
+    volumes:
+      - .:/app
+    environment:
+      APP_ROLE: receiver
+      ID: 1
+      APP_MULTICAST_PORT: 5000
+      APP_MULTICAST_ADDR: "239.0.0.1"
+
+  receiver-2:
+    container_name: receiver-2
+    image: da1-ipmcast
+    volumes:
+      - .:/app
+    environment:
+      APP_ROLE: receiver
+      ID: 2
+      APP_MULTICAST_PORT: 5000
+      APP_MULTICAST_ADDR: "239.0.0.1"
+
+  receiver-3:
+    container_name: receiver-3
+    image: da1-ipmcast
+    volumes:
+      - .:/app
+    environment:
+      APP_ROLE: receiver
+      ID: 3
+      APP_MULTICAST_PORT: 5000
+      APP_MULTICAST_ADDR: "239.0.0.1"
