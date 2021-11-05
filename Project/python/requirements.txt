@@ -1,1 +1,1 @@
-hello there 100
+proposers proposer 1000
