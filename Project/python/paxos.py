@@ -4,6 +4,7 @@
 # print("Running on host:", socket.gethostname())
 
 #!/usr/bin/env python
+import os
 import sys
 import socket
 import struct
@@ -81,6 +82,7 @@ def client(config, id):
   print 'client done.'
 
 
+os.system('clear')
 if __name__ == '__main__':
   cfgpath = sys.argv[1]
   config = parse_cfg(cfgpath)
