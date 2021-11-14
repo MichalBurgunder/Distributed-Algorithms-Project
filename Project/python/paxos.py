@@ -43,7 +43,7 @@ def acceptor(config, id):
   print '-> acceptor', id
   state = {
     v_round: 0,
-    last_round_participated_in: 0,
+    c_round: 0,
     v_value : None,
   }
 
@@ -51,12 +51,30 @@ def acceptor(config, id):
   s = mcast_sender()
   while True:
     msg = r.recv(2**16)
-    
+    print(msg)
     # MICHAL:
+    
 # v-round: comes from proposer
-# round: the last round the acceptor has participated in
+# c-round: the last round the acceptor has participated in
 # v-value: The final value that needs be learned by the learners
+    if msg.cRound:
+      if not msg.vVal:
+        # receiving initialization message (1a)
+        # send the last round that has participated in
+        s.sendto({"c_round": c_round}, config['proposers']) 
+      else:
+        # receiving actual values to accept
+        # must by default send accept, unless the round given is lower than an already accepted round
+        if msg.vRound < state.c_round:
+          # round is smaller than the one participated in
+          s.sendto('abort', config['proposers'])
+        else:
+          # received a valid message from the proposers
+          # therefore, send proposers v-round & v-value
+          s.sendto({vRound: state.v_round, vVal: state.v_value })
 
+
+    if msg
     # 1a
     # receive c-round from proposer
     #   
@@ -142,8 +160,12 @@ os.system('clear')
 if __name__ == '__main__':
   cfgpath = sys.argv[1]
   config = parse_cfg(cfgpath)
+  # print sys.argv
+  # print config
   role = sys.argv[2]
   id = int(sys.argv[3])
+
+  # rolefunc = 0
   if role == 'acceptor':
     rolefunc = acceptor
   elif role == 'proposer':
