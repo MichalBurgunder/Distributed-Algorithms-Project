@@ -52,6 +52,7 @@ def acceptor(config, id):
   while True:
     msg = r.recv(2**16)
     
+    # MICHAL:
 # v-round: comes from proposer
 # round: the last round the acceptor has participated in
 # v-value: The final value that needs be learned by the learners
@@ -88,6 +89,8 @@ def proposer(config, id):
   print '-> proposer', id
   r = mcast_receiver(config['proposers'])
   s = mcast_sender()
+
+    # XINTAN:
 
     # 1a
     # send c-rnd to all acceptors
