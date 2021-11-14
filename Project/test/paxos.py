@@ -8,6 +8,7 @@ import os
 import sys
 import socket
 import struct
+import random
 
 
 def mcast_receiver(hostport):
@@ -92,7 +93,9 @@ def proposer(config, id):
   pro_states = {
     'c_rnd' : 0,
     'c_val' : null,
-    'rnd'  : 0
+    'rnd'  : 0,
+    'v_val' : [],
+    'v_rnd' : []
   }
   rev_accp_states = []
     # XINTAN:
@@ -107,14 +110,13 @@ def proposer(config, id):
     # 2a
     # REQUIREMENTS:
     # If one message is abort (message loss), go back to 1a with new (higher) round number
-
+    # send c_rnd, c_value
 
     # 2b
-    # receive v-round, v-value
+    # receive v-rund, v-value
     # confirm that a majority of acceptors have accepted the proposed value
     # If yes, send v-val to all learners
     # If no, resend...? (?) CHECK, WE DONT KNOW
-     
      
     # Decision:
     # sends the agreed upon value to the learners
@@ -157,8 +159,6 @@ def proposer(config, id):
     else:
       msg_dec['v_val'] = ''
     s.sendto(msg_dec, config['learners'])
-
-
 
 def learner(config, id):
   r = mcast_receiver(config['learners'])
