@@ -12,6 +12,7 @@ import struct
 
 def mcast_receiver(hostport):
   """create a multicast socket listening to the address"""
+  print(hostport)
   recv_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
   recv_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
   recv_sock.bind(hostport)
@@ -42,9 +43,9 @@ def parse_cfg(cfgpath):
 def acceptor(config, id):
   print '-> acceptor', id
   state = {
-    v_round: 0,
-    c_round: 0,
-    v_value : None,
+    'c_rnd' : 0,
+    'c_val' : None,
+    'rnd'  : 0
   }
 
   r = mcast_receiver(config['acceptors'])
@@ -54,24 +55,25 @@ def acceptor(config, id):
     print(msg)
     # MICHAL:
     
-# v-round: comes from proposer
-# c-round: the last round the acceptor has participated in
-# v-value: The final value that needs be learned by the learners
-    if msg.cRound:
-      if not msg.vVal:
-        # receiving initialization message (1a)
-        # send the last round that has participated in
-        s.sendto({"c_round": c_round}, config['proposers']) 
-      else:
-        # receiving actual values to accept
-        # must by default send accept, unless the round given is lower than an already accepted round
-        if msg.vRound < state.c_round:
-          # round is smaller than the one participated in
-          s.sendto('abort', config['proposers'])
-        else:
-          # received a valid message from the proposers
-          # therefore, send proposers v-round & v-value
-          s.sendto({vRound: state.v_round, vVal: state.v_value })
+    # v-round: comes from proposer
+    # c-round: the last round the acceptor has participated in
+    # v-value: The final value that needs be learned by the learners
+    if msg:
+        if msg.cRound:
+          if not msg.vVal:
+            # receiving initialization message (1a)
+            # send the last round that has participated in
+            s.sendto({"stage": "1b", "c_round": state.c_rnd}, config['proposers']) 
+          else:
+            # receiving actual values to accept
+            # must by default send accept, unless the round given is lower than an already accepted round
+            if msg.rnd < state.c_rnd:
+              # round is smaller than the one participated in
+              s.sendto('abort', config['proposers'])
+            else:
+              # received a valid message from the proposers
+              # therefore, send proposers v-round & v-value
+              s.sendto({"stage": "2b", "rnd": state.rnd, "c_val": state.c_val }, config['proposers'])
 
 
     # if msg
@@ -105,11 +107,12 @@ def acceptor(config, id):
 
 def proposer(config, id):
   print '-> proposer', id
+  print(config)
   r = mcast_receiver(config['proposers'])
   s = mcast_sender()
   pro_states = {
     'c_rnd' : 0,
-    'c_val' : null,
+    'c_val' : None,
     'rnd'  : 0
   }
   rev_accp_states = []
@@ -170,7 +173,7 @@ def proposer(config, id):
     #??? CHECK RECEIVE FORMAT
     pro_states['v_rnd'].append(msg_1b_r['v_rnd'])
     pro_states['v_val'].append(msg_1b_r['v_val'])
-    if set(pro_states['v_rnd']) = set([pro_states['c_rnd']]):
+    if set(pro_states['v_rnd']) == set([pro_states['c_rnd']]):
       msg_dec['v_val'] = pro_states['c_val']
     else:
       msg_dec['v_val'] = ''
@@ -202,6 +205,7 @@ if __name__ == '__main__':
   config = parse_cfg(cfgpath)
   role = sys.argv[2]
   id = int(sys.argv[3])
+  rolefunc =  None
   if role == 'acceptor':
     rolefunc = acceptor
   elif role == 'proposer':
