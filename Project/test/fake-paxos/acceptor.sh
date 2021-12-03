@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 
-./paxos.py $2 acceptor $1
+python ./paxos.py $2 acceptor $1
