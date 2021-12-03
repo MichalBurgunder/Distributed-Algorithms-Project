@@ -40,18 +40,43 @@ def parse_cfg(cfgpath):
 # ----------------------------------------------------
 
 
+
 def acceptor(config, id):
   print '-> acceptor', id
   state = {
-    v_round: 0,
-    last_round_participated_in: 0,
-    v_value : None,
+    'c_rnd' : 0,
+    'c_val' : None,
+    'rnd'  : 0
   }
 
   r = mcast_receiver(config['acceptors'])
   s = mcast_sender()
   while True:
     msg = r.recv(2**16)
+    print(msg)
+    # MICHAL:
+    
+    # v-round: comes from proposer
+    # c-round: the last round the acceptor has participated in
+    # v-value: The final value that needs be learned by the learners
+    if msg:
+        if msg.cRound:
+          if not msg.vVal:
+            # receiving initialization message (1a)
+            # send the last round that has participated in
+            s.sendto({"stage": "1b", "c_round": state.c_rnd}, config['proposers']) 
+          else:
+            # receiving actual values to accept
+            # must by default send accept, unless the round given is lower than an already accepted round
+            if msg.rnd < state.c_rnd:
+              # round is smaller than the one participated in
+              s.sendto('abort', config['proposers'])
+            else:
+              # received a valid message from the proposers
+              # therefore, send proposers v-round & v-value
+              s.sendto({"stage": "2b", "rnd": state.rnd, "c_val": state.c_val }, config['proposers'])
+
+
     
     # MICHAL:
 # v-round: comes from proposer
@@ -122,7 +147,10 @@ def proposer(config, id):
     # sends the agreed upon value to the learners
 
   while True:
-    # msg = r.recv(2**16)
+    msg = r.recv(2**16)
+    print(msg)
+
+    
     # 1a
     msg_1a = {'stage':'1a'}
     # randomly increase the c_rnd as initiate
@@ -130,8 +158,11 @@ def proposer(config, id):
     msg_1a['c_rnd'] = pro_states['c_rnd']
     s.sendto(msg_1a, config['acceptors'])
     # 1b receive 1b,rnd,v_rnd,v_val
-    #??? CHECK RECEIVE FORMAT
     msg_1b_r = r.recv(2**16)
+    if msg_1b_r:
+      print("1b received:")
+      print(msg_1b_r)
+    else: 
     pro_states['v_rnd'].append(msg_1b_r['v_rnd'])
     pro_states['v_val'].append(msg_1b_r['v_val'])
     k = max(pro_states['v_rnd']) # need to check the format
@@ -149,9 +180,10 @@ def proposer(config, id):
     s.sendto(msg_2a, config['acceptors'])
     # 2b & decision
     msg_2b_r = r.recv(2**16)
+    print("2b received:")
+    print(msg_2b_r)
     msg_dec = {}
     msg_dec['stage'] = 'dec'
-    #??? CHECK RECEIVE FORMAT
     pro_states['v_rnd'].append(msg_1b_r['v_rnd'])
     pro_states['v_val'].append(msg_1b_r['v_val'])
     if set(pro_states['v_rnd']) = set([pro_states['c_rnd']]):
