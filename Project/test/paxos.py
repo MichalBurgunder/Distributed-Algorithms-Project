@@ -9,6 +9,7 @@ import sys
 import socket
 import struct
 import random
+import time
 
 
 def mcast_receiver(hostport):
@@ -117,7 +118,7 @@ def proposer(config, id):
   s = mcast_sender()
   pro_states = {
     'c_rnd' : 0,
-    'c_val' : null,
+    'c_val' : None,
     'rnd'  : 0,
     'v_val' : [],
     'v_rnd' : []
@@ -146,7 +147,7 @@ def proposer(config, id):
     # Decision:
     # sends the agreed upon value to the learners
 
-   while True:
+  while True:
     # msg = r.recv(2**16)
     # 1a
     if id == 0 and propose_times>0 and not in_propose:
@@ -160,51 +161,51 @@ def proposer(config, id):
       print(msg_1a)
       propose_times = propose_times -1
       in_propose = True
-    # 1b receive 1b,rnd,v_rnd,v_val
-    msg = r.recv(2**16)
-    if msg :
-      print(msg)
-      if msg['stage'] == '1b':
-        print("received 1b message")
-        pro_states['v_rnd'].append(msg['v_rnd'])
-        pro_states['v_val'].append(msg['v_val'])
-        k = max(pro_states['v_rnd']) # need to check the format
-        k_index = pro_states['v_rnd'].index(k)
-        v = 'init'
-        if k == 0:
-          pro_states['c_val'] = v
-        else:
-          pro_states['c_val'] = pro_states['v_val'][k_index]
-        # 2a
-        msg_2a = {}
-        msg_2a['stage'] =  '2a'
-        msg_2a['c_rnd'] = pro_states['c_rnd']
-        msg_2a['c_val'] = pro_states['c_val']
-        s.sendto(msg_2a, config['acceptors'])
-        time.sleep(1)
-        print("send 2a message")
-        print(msg_2a)
-      elif msg['stage'] == '2b'
-        # 2b & decision
-        msg_dec = {}
-        msg_dec['stage'] = 'dec'
-        pro_states['v_rnd'].append(msg['v_rnd'])
-        pro_states['v_val'].append(msg['v_val'])
-        if set(pro_states['v_rnd']) == set([pro_states['c_rnd']]):
-          msg_dec['v_val'] = pro_states['c_val']
-        else:
-          msg_dec['v_val'] = ''
-          s.sendto(msg_dec, config['learners'])
+      # 1b receive 1b,rnd,v_rnd,v_val
+      msg = r.recv(2**16)
+      if msg :
+        print(msg)
+        if msg['stage'] == '1b':
+          print("received 1b message")
+          pro_states['v_rnd'].append(msg['v_rnd'])
+          pro_states['v_val'].append(msg['v_val'])
+          k = max(pro_states['v_rnd']) # need to check the format
+          k_index = pro_states['v_rnd'].index(k)
+          v = 'init'
+          if k == 0:
+            pro_states['c_val'] = v
+          else:
+            pro_states['c_val'] = pro_states['v_val'][k_index]
+          # 2a
+          msg_2a = {}
+          msg_2a['stage'] =  '2a'
+          msg_2a['c_rnd'] = pro_states['c_rnd']
+          msg_2a['c_val'] = pro_states['c_val']
+          s.sendto(msg_2a, config['acceptors'])
           time.sleep(1)
-          print("send decision message")
-          print(msg_dec)
+          print("send 2a message")
+          print(msg_2a)
+        elif msg['stage'] == '2b':
+          # 2b & decision
+          msg_dec = {}
+          msg_dec['stage'] = 'dec'
+          pro_states['v_rnd'].append(msg['v_rnd'])
+          pro_states['v_val'].append(msg['v_val'])
+          if set(pro_states['v_rnd']) == set([pro_states['c_rnd']]):
+            msg_dec['v_val'] = pro_states['c_val']
+          else:
+            msg_dec['v_val'] = ''
+            s.sendto(msg_dec, config['learners'])
+            time.sleep(1)
+            print("send decision message")
+            print(msg_dec)
+            in_propose = False
+        else:
+          print("message received not 1b not 2b")
+          print("repropse 1a stage")
+          time.sleep(1)
           in_propose = False
-      else:
-        print("message received not 1b not 2b")
-        print("repropse 1a stage")
-        time.sleep(1)
-        in_propose = False
-        propose_times = propose_times + 1
+          propose_times = propose_times + 1
 
 def learner(config, id):
   r = mcast_receiver(config['learners'])
