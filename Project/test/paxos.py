@@ -47,35 +47,38 @@ def acceptor(config, id):
   state = {
     'c_rnd' : 0,
     'c_val' : None,
-    'rnd'  : 0
+    'rnd'  : 0,
+    "rnd": 0,
+    "val": None
   }
 
   r = mcast_receiver(config['acceptors'])
   s = mcast_sender()
   while True:
     msg = r.recv(2**16)
-    print(msg)
     # MICHAL:
-    
+
     # v-round: comes from proposer
     # c-round: the last round the acceptor has participated in
     # v-value: The final value that needs be learned by the learners
     if msg:
-        if msg.cRound:
-          if not msg.vVal:
-            # receiving initialization message (1a)
-            # send the last round that has participated in
-            s.sendto({"stage": "1b", "c_round": state.c_rnd}, config['proposers']) 
-          else:
-            # receiving actual values to accept
-            # must by default send accept, unless the round given is lower than an already accepted round
-            if msg.rnd < state.c_rnd:
-              # round is smaller than the one participated in
-              s.sendto('abort', config['proposers'])
-            else:
-              # received a valid message from the proposers
-              # therefore, send proposers v-round & v-value
-              s.sendto({"stage": "2b", "rnd": state.rnd, "c_val": state.c_val }, config['proposers'])
+      if msg['stage'] == '1a':
+        # receiving initialization message (1a)
+        state['rnd'] = msg['c-rnd']
+        # send the last round that has participated in
+        s.sendto({"stage": "1b", "c_round": state.c_rnd}, config['proposers'])  
+      else:
+        # receiving actual values to accept
+        # must by default send accept, unless the round given is lower than an   already accepted round
+        if msg['rnd'] < state['c_rnd']:
+          # round is smaller than the one participated in
+          s.sendto('abort', config['proposers'])
+        else:
+          # received a valid message from the proposers
+          state["v-rnd"] = msg["c-rnd"]
+          state["v-val"] = msg["c-val"]
+          # therefore, send proposers v-round & v-value
+          s.sendto({"stage": "2b", "rnd": state.rnd, "c_val": state.c_val }, config['proposers'])
 
 
     
