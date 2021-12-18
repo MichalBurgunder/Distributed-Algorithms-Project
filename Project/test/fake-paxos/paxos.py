@@ -52,7 +52,6 @@ def acceptor(config, id):
   while True:
     msg = r.recv(2**16)
     # MICHAL:
-    print("test")
     # v-round: comes from proposer
     # c-round: the last round the acceptor has participated in
     # v-value: The final value that needs be learned by the learners
@@ -63,12 +62,12 @@ def acceptor(config, id):
         # receiving initialization message (1a)
         # check to see if -rnd is bigger than rnd
         if msg['c_rnd'] < state['rnd']:
-          state['rnd'] = msg['c_rnd']
-        else: 
-          print("msg_rnd received: " + str(msg['stage']) + ", highest rnd so far: " + str(state['rnd']))
+          print("ABORT! 1a msg_rnd received: " + str(msg['c_rnd']) + ", highest rnd so far: " + str(state['rnd']))
           s.sendto(str({'stage': 'abort'}), config['proposers'])
           msg = None
           pass
+        else: 
+          state['rnd'] = msg['c_rnd']
         # send the last round that has participated in
         s.sendto(str({"stage": "1b", "rnd": state['rnd'], 'v_rnd': state['v_rnd'], 'v_val': state['v_val']}), config['proposers'])  
       elif msg['stage'] == '2a':
@@ -76,6 +75,7 @@ def acceptor(config, id):
         # must by default send accept, unless the round given is lower than an already accepted round
         if msg['c_rnd'] < state['rnd']:
           # round is smaller than the one participated in
+          print("ABORT! 2a msg_rnd received: " + str(msg['c_rnd']) + ", highest rnd so far: " + str(state['rnd']))
           s.sendto(str({'stage': 'abort'}), config['proposers'])
         else:
           # received a valid message from the proposers
@@ -168,11 +168,11 @@ def proposer(config, id):
       if not in_propose:
         msg_1a = {'stage':'1a'}
         # randomly increase the c_rnd as initiate
-        pro_states['c_rnd'] = pro_states['c_rnd'] + random.randint(0,5)
+        pro_states['c_rnd'] = pro_states['c_rnd'] + 1
         msg_1a['c_rnd'] = pro_states['c_rnd']
         intial_v = msg['v']
+        print("sending 1a message",msg_1a)
         s.sendto(str(msg_1a), config['acceptors'])
-        print("Send 1a message",msg_1a)
         # print("sleeping 1s")
         # time.sleep(1)
         propose_times = propose_times -1
@@ -185,8 +185,8 @@ def proposer(config, id):
       print("received 1b message")
       pro_states['v_rnd'].append(msg['v_rnd'])
       pro_states['v_val'].append(msg['v_val'])
-      print(id,"proposer v_rnd",pro_states['v_rnd'])
-      print(id,"proposer v_val",pro_states['v_val'])
+      # print(id,"proposer v_rnd",pro_states['v_rnd'])
+      # print(id,"proposer v_val",pro_states['v_val'])
       k = max(pro_states['v_rnd']) # need to check the format
       k_index = pro_states['v_rnd'].index(k)
       if k == 0:
@@ -200,22 +200,22 @@ def proposer(config, id):
       msg_2a['stage'] =  '2a'
       msg_2a['c_rnd'] = pro_states['c_rnd']
       msg_2a['c_val'] = pro_states['c_val']
+      print("sending 2a message:",msg_2a)
       s.sendto(str(msg_2a), config['acceptors'])
-      print("send 2a message:",msg_2a)
     elif msg['stage'] == '2b':
       # 2b & decision
       msg_dec = {}
       msg_dec['stage'] = 'dec'
       pro_states['v_rnd'].append(msg['v_rnd'])
       pro_states['v_val'].append(msg['v_val'])
-      print("Proposer v_rnd",pro_states['v_rnd'])
-      print("Proposer c_rnd",pro_states['c_rnd'])
+      # print("Proposer v_rnd",pro_states['v_rnd'])
+      # print("Proposer c_rnd",pro_states['c_rnd'])
       print("In proposer, at 2b stage. We made it!")
       if set(pro_states['v_rnd']) == set([pro_states['c_rnd']]):
         msg_dec['v_val'] = pro_states['c_val']
       else:
         msg_dec['v_val'] = ''
-        s.sendto(str(msg_dec), config['learners'])
+        s.sendto(str(msg['v_val']), config['learners'])
         #time.sleep(1)
         print("send decision message:",msg_dec)
         in_propose = False
@@ -230,7 +230,9 @@ def learner(config, id):
   r = mcast_receiver(config['learners'])
   while True:
     msg = r.recv(2**16)
-    print msg
+    if msg:
+      print(msg)
+      msg = None
     sys.stdout.flush()
 
 
@@ -239,7 +241,8 @@ def client(config, id):
   s = mcast_sender()
   for value in sys.stdin:
     value = value.strip()
-    time.sleep(0.1)
+    print("Letting client sleep 1sec...")
+    time.sleep(1)
     print "client: sending %s to proposers" % (value)
     s.sendto(str({'stage':'1a', 'v':value,}), config['proposers'])
   print 'client done.'
