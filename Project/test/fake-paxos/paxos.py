@@ -52,21 +52,23 @@ def acceptor(config, id):
   while True:
     msg = r.recv(2**16)
     # MICHAL:
-
+    print("test")
     # v-round: comes from proposer
     # c-round: the last round the acceptor has participated in
     # v-value: The final value that needs be learned by the learners
     if msg:
+      print("Acceptor ", id, " receive:", msg)
       msg = ast.literal_eval(msg)
       if msg['stage'] == '1a':
         # receiving initialization message (1a)
         # check to see if -rnd is bigger than rnd
         if msg['c_rnd'] < state['rnd']:
-          state['rnd'] = msg['c-rnd']
+          state['rnd'] = msg['c_rnd']
         else: 
+          print("msg_rnd received: " + str(msg['stage']) + ", highest rnd so far: " + str(state['rnd']))
           s.sendto(str({'stage': 'abort'}), config['proposers'])
           msg = None
-          break
+          pass
         # send the last round that has participated in
         s.sendto(str({"stage": "1b", "rnd": state['rnd'], 'v_rnd': state['v_rnd'], 'v_val': state['v_val']}), config['proposers'])  
       elif msg['stage'] == '2a':
@@ -77,10 +79,11 @@ def acceptor(config, id):
           s.sendto(str({'stage': 'abort'}), config['proposers'])
         else:
           # received a valid message from the proposers
-          state['v-rnd'] = msg['c-rnd']
-          state['v-val'] = msg['c-val']
+          state['rnd'] = msg['c_rnd']
+          state['v_rnd'] = msg['c_rnd']
+          state['v_val'] = msg['c_val']
           # therefore, send proposers v-round & v-value
-          s.sendto(str({'stage': '2b', 'v-rnd': state['v-rnd'], 'v_val': state['v_val'] }), config['proposers'])
+          s.sendto(str({'stage': '2b', 'v_rnd': state['v_rnd'], 'v_val': state['v_val'] }), config['proposers'])
       else:
           # false message. shouldn't happen
           print("False message detected: You have likely coded something wrong")
@@ -159,7 +162,7 @@ def proposer(config, id):
   while True:
     msg = r.recv(2**16)
     msg = ast.literal_eval(msg)
-    print("Proposer ",id, " receive:", msg)
+    print("Proposer ", id, " receive:", msg)
     # 1a
     if msg['stage'] == '1a':
       if not in_propose:
@@ -170,8 +173,8 @@ def proposer(config, id):
         intial_v = msg['v']
         s.sendto(str(msg_1a), config['acceptors'])
         print("Send 1a message",msg_1a)
-        time.sleep(1)
-        print("sleeping 1s")
+        # print("sleeping 1s")
+        # time.sleep(1)
         propose_times = propose_times -1
         in_propose = True
         # 1b receive 1b,rnd,v_rnd,v_val
@@ -207,6 +210,7 @@ def proposer(config, id):
       pro_states['v_val'].append(msg['v_val'])
       print("Proposer v_rnd",pro_states['v_rnd'])
       print("Proposer c_rnd",pro_states['c_rnd'])
+      print("In proposer, at 2b stage. We made it!")
       if set(pro_states['v_rnd']) == set([pro_states['c_rnd']]):
         msg_dec['v_val'] = pro_states['c_val']
       else:
@@ -218,7 +222,7 @@ def proposer(config, id):
     else:
       print("proposer received not 1a or 1b or 2b")
       print("Stop current propose, restart propose 1a")
-      #time.sleep(1)
+      # time.sleep(0.1)
       in_propose = False
       propose_times = propose_times + 1
 
@@ -235,8 +239,9 @@ def client(config, id):
   s = mcast_sender()
   for value in sys.stdin:
     value = value.strip()
+    time.sleep(0.1)
     print "client: sending %s to proposers" % (value)
-    s.sendto(str({'stage':'1a', 'v':value}), config['proposers'])
+    s.sendto(str({'stage':'1a', 'v':value,}), config['proposers'])
   print 'client done.'
 
 
