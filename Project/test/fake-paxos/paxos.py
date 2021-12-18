@@ -10,7 +10,8 @@ import socket
 import struct
 import random
 import time
-
+import json
+import ast
 
 def mcast_receiver(hostport):
   """create a multicast socket listening to the address"""
@@ -38,19 +39,12 @@ def parse_cfg(cfgpath):
       cfg[role] = (host, int(port))
   return cfg
 
-
-# ----------------------------------------------------
-
-
-
 def acceptor(config, id):
   print '-> acceptor', id
   state = {
-    'c_rnd' : 0,
-    'c_val' : None,
     'rnd'  : 0,
-    "rnd": 0,
-    "val": None
+    'v_rnd': 0,
+    'v_val': 0
   }
 
   r = mcast_receiver(config['acceptors'])
@@ -63,23 +57,27 @@ def acceptor(config, id):
     # c-round: the last round the acceptor has participated in
     # v-value: The final value that needs be learned by the learners
     if msg:
+      msg = ast.literal_eval(msg)
       if msg['stage'] == '1a':
         # receiving initialization message (1a)
-        state['rnd'] = msg['c-rnd']
+        state['rnd'] = msg['c_rnd']
         # send the last round that has participated in
-        s.sendto({"stage": "1b", "c_round": state.c_rnd}, config['proposers'])  
-      else:
+        s.sendto(str({'stage': '1b', 'v_rnd': state['v_rnd'],'v_val':state['v_val']}), config['proposers']) 
+        print("send 1b, v_rnd ",state['v_rnd'],"v_rnd ",state['v_rnd']) 
+      elif msg['stage'] == '2a':
         # receiving actual values to accept
-        # must by default send accept, unless the round given is lower than an   already accepted round
-        if msg['rnd'] < state['c_rnd']:
+        # must by default send accept, unless the round given is lower than an already accepted round
+        if msg['c_rnd'] < state['rnd']:
           # round is smaller than the one participated in
           s.sendto('abort', config['proposers'])
+          print("Receive smaller current round number, repropose")
         else:
           # received a valid message from the proposers
-          state["v-rnd"] = msg["c-rnd"]
-          state["v-val"] = msg["c-val"]
+          state['v_rnd'] = msg['c_rnd']
+          state['v_val'] = msg['c_val']
           # therefore, send proposers v-round & v-value
-          s.sendto({"stage": "2b", "rnd": state.rnd, "c_val": state.c_val }, config['proposers'])
+          s.sendto(str({'stage': '2b', 'v_rnd': state['v_rnd'], 'v_val': state['v_val'] }), config['proposers'])
+          print("send 2b, v_rnd ",state['v_rnd'],"v_val ", state['v_val'])
 
 
     
@@ -108,8 +106,6 @@ def acceptor(config, id):
     # 2b
     # at every received message, sends a message to the propsers on whether they "accepted" or "aborted" (v-round, v-value)
     # 
-
-
     # fake acceptor! just forwards messages to the learner
   if id == 1:
       # print "acceptor: sending %s to learners" % (msg)
@@ -122,12 +118,13 @@ def proposer(config, id):
   s = mcast_sender()
   pro_states = {
     'c_rnd' : 0,
-    'c_val' : None,
+    'c_val' : 0,
     'rnd'  : 0,
     'v_val' : [],
     'v_rnd' : []
   }
   rev_accp_states = []
+  intial_v = None
     # XINTAN:
 
     # 1a
@@ -150,67 +147,74 @@ def proposer(config, id):
      
     # Decision:
     # sends the agreed upon value to the learners
-
-  # while True:
-    # msg = r.recv(2**16)
-    # 1a
-  if id == 0 and propose_times>0 and not in_propose:
-    msg_1a = {'stage':'1a'}
-    # randomly increase the c_rnd as initiate
-    pro_states['c_rnd'] = pro_states['c_rnd'] + random.randint(0,5)
-    msg_1a['c_rnd'] = pro_states['c_rnd']
-    s.sendto(msg_1a, config['acceptors'])
-    print("sleeping")
-    time.sleep(1)
-    print("Send 1a message")
-    print(msg_1a)
-    propose_times = propose_times -1
-    in_propose = True
-    # 1b receive 1b,rnd,v_rnd,v_val
+  in_propose = False
+  propose_times = 10
+  client_msg = []
+  while True:
     msg = r.recv(2**16)
-    if msg :
-      print(msg)
-      if msg['stage'] == '1b':
-        print("received 1b message")
-        pro_states['v_rnd'].append(msg['v_rnd'])
-        pro_states['v_val'].append(msg['v_val'])
-        k = max(pro_states['v_rnd']) # need to check the format
-        k_index = pro_states['v_rnd'].index(k)
-        v = 'init'
-        if k == 0:
-          pro_states['c_val'] = v
-        else:
-          pro_states['c_val'] = pro_states['v_val'][k_index]
-        # 2a
-        msg_2a = {}
-        msg_2a['stage'] =  '2a'
-        msg_2a['c_rnd'] = pro_states['c_rnd']
-        msg_2a['c_val'] = pro_states['c_val']
-        s.sendto(msg_2a, config['acceptors'])
+    msg = ast.literal_eval(msg)
+    print("Proposer ",id, " receive:", msg)
+    # 1a
+    if msg['stage'] == '1a':
+      if not in_propose:
+        msg_1a = {'stage':'1a'}
+        # randomly increase the c_rnd as initiate
+        pro_states['c_rnd'] = pro_states['c_rnd'] + random.randint(0,5)
+        msg_1a['c_rnd'] = pro_states['c_rnd']
+        intial_v = msg['v']
+        s.sendto(str(msg_1a), config['acceptors'])
+        print("Send 1a message",msg_1a)
         time.sleep(1)
-        print("send 2a message")
-        print(msg_2a)
-      elif msg['stage'] == '2b':
-        # 2b & decision
-        msg_dec = {}
-        msg_dec['stage'] = 'dec'
-        pro_states['v_rnd'].append(msg['v_rnd'])
-        pro_states['v_val'].append(msg['v_val'])
-        if set(pro_states['v_rnd']) == set([pro_states['c_rnd']]):
-          msg_dec['v_val'] = pro_states['c_val']
-        else:
-          msg_dec['v_val'] = ''
-          s.sendto(msg_dec, config['learners'])
-          time.sleep(1)
-          print("send decision message")
-          print(msg_dec)
-          in_propose = False
+        print("sleeping 1s")
+        propose_times = propose_times -1
+        in_propose = True
+        # 1b receive 1b,rnd,v_rnd,v_val
+        msg = r.recv(2**16)
       else:
-        print("message received not 1b not 2b")
-        print("repropse 1a stage")
-        time.sleep(1)
+        client_msg.append(msg['v'])
+    elif msg['stage'] == '1b':
+      print("received 1b message")
+      pro_states['v_rnd'].append(msg['v_rnd'])
+      pro_states['v_val'].append(msg['v_val'])
+      print(id,"proposer v_rnd",pro_states['v_rnd'])
+      print(id,"proposer v_val",pro_states['v_val'])
+      k = max(pro_states['v_rnd']) # need to check the format
+      k_index = pro_states['v_rnd'].index(k)
+      if k == 0:
+        pro_states['c_val'] = intial_v
+        print("initial value")
+      else:
+        pro_states['c_val'] = pro_states['v_val'][k_index]
+        print("biggest c value")
+      # 2a
+      msg_2a = {}
+      msg_2a['stage'] =  '2a'
+      msg_2a['c_rnd'] = pro_states['c_rnd']
+      msg_2a['c_val'] = pro_states['c_val']
+      s.sendto(str(msg_2a), config['acceptors'])
+      print("send 2a message:",msg_2a)
+    elif msg['stage'] == '2b':
+      # 2b & decision
+      msg_dec = {}
+      msg_dec['stage'] = 'dec'
+      pro_states['v_rnd'].append(msg['v_rnd'])
+      pro_states['v_val'].append(msg['v_val'])
+      print("Proposer v_rnd",pro_states['v_rnd'])
+      print("Proposer c_rnd",pro_states['c_rnd'])
+      if set(pro_states['v_rnd']) == set([pro_states['c_rnd']]):
+        msg_dec['v_val'] = pro_states['c_val']
+      else:
+        msg_dec['v_val'] = ''
+        s.sendto(str(msg_dec), config['learners'])
+        #time.sleep(1)
+        print("send decision message:",msg_dec)
         in_propose = False
-        propose_times = propose_times + 1
+    else:
+      print("proposer received not 1a or 1b or 2b")
+      print("Stop current propose, restart propose 1a")
+      #time.sleep(1)
+      in_propose = False
+      propose_times = propose_times + 1
 
 def learner(config, id):
   r = mcast_receiver(config['learners'])
@@ -226,11 +230,11 @@ def client(config, id):
   for value in sys.stdin:
     value = value.strip()
     print "client: sending %s to proposers" % (value)
-    s.sendto(value, config['proposers'])
+    s.sendto(str({'stage':'1a', 'v':value}), config['proposers'])
   print 'client done.'
 
 
-os.system('clear')
+#os.system('clear')
 if __name__ == '__main__':
   cfgpath = sys.argv[1]
   config = parse_cfg(cfgpath)
