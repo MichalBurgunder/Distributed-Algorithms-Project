@@ -15,7 +15,7 @@ import ast
 
 def mcast_receiver(hostport):
   """create a multicast socket listening to the address"""
-  # print(hostport)
+  print(hostport)
   recv_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
   recv_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
   recv_sock.bind(hostport)
@@ -60,30 +60,24 @@ def acceptor(config, id):
       msg = ast.literal_eval(msg)
       if msg['stage'] == '1a':
         # receiving initialization message (1a)
-        # check to see if -rnd is bigger than rnd
-        if msg['c_rnd'] < state['rnd']:
-          state['rnd'] = msg['c-rnd']
-        else: 
-          s.sendto(str({'stage': 'abort'}), config['proposers'])
-          msg = None
-          break
+        state['rnd'] = msg['c_rnd']
         # send the last round that has participated in
-        s.sendto(str({"stage": "1b", "rnd": state['rnd'], 'v_rnd': state['v_rnd'], 'v_val': state['v_val']}), config['proposers'])  
+        s.sendto(str({'stage': '1b', 'v_rnd': state['v_rnd'],'v_val':state['v_val']}), config['proposers']) 
+        print("send 1b, v_rnd ",state['v_rnd'],"v_rnd ",state['v_rnd']) 
       elif msg['stage'] == '2a':
         # receiving actual values to accept
         # must by default send accept, unless the round given is lower than an already accepted round
         if msg['c_rnd'] < state['rnd']:
           # round is smaller than the one participated in
-          s.sendto(str({'stage': 'abort'}), config['proposers'])
+          s.sendto('abort', config['proposers'])
+          print("Receive smaller current round number, repropose")
         else:
           # received a valid message from the proposers
-          state['v-rnd'] = msg['c-rnd']
-          state['v-val'] = msg['c-val']
+          state['v_rnd'] = msg['c_rnd']
+          state['v_val'] = msg['c_val']
           # therefore, send proposers v-round & v-value
-          s.sendto(str({'stage': '2b', 'v-rnd': state['v-rnd'], 'v_val': state['v_val'] }), config['proposers'])
-      else:
-          # false message. shouldn't happen
-          print("False message detected: You have likely coded something wrong")
+          s.sendto(str({'stage': '2b', 'v_rnd': state['v_rnd'], 'v_val': state['v_val'] }), config['proposers'])
+          print("send 2b, v_rnd ",state['v_rnd'],"v_val ", state['v_val'])
 
 
     
@@ -112,10 +106,10 @@ def acceptor(config, id):
     # 2b
     # at every received message, sends a message to the propsers on whether they "accepted" or "aborted" (v-round, v-value)
     # 
-    # fake acceptor! Let's for now do nothing
-  # if id == 1:
+    # fake acceptor! just forwards messages to the learner
+  if id == 1:
       # print "acceptor: sending %s to learners" % (msg)
-    # s.sendto(str(msg), config['learners'])
+    s.sendto(msg, config['learners'])
 
 
 def proposer(config, id):
