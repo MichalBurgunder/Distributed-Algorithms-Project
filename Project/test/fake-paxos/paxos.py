@@ -53,7 +53,6 @@ def acceptor(config, id):
   while True:
     msg = r.recv(2**16)
     # MICHAL:
-
     # v-round: comes from proposer
     # c-round: the last round the acceptor has participated in
     # v-value: The final value that needs be learned by the learners
@@ -173,7 +172,7 @@ def proposer(config, id):
         }
         msg_1a = {'stage':'1a'}
         # randomly increase the c_rnd as initiate
-        pro_states['c_rnd'] = pro_states['c_rnd'] + random.randint(0,5)
+        pro_states['c_rnd'] = pro_states['c_rnd'] + 1
         msg_1a['c_rnd'] = pro_states['c_rnd']
         intial_v = msg_client['v']
         s.sendto(str(msg_1a), config['acceptors'])
@@ -237,7 +236,9 @@ def learner(config, id):
   r = mcast_receiver(config['learners'])
   while True:
     msg = r.recv(2**16)
-    print msg
+    if msg:
+      print(msg)
+      msg = None
     sys.stdout.flush()
 
 
@@ -246,8 +247,10 @@ def client(config, id):
   s = mcast_sender()
   for value in sys.stdin:
     value = value.strip()
+    print("Letting client sleep 1sec...")
+    time.sleep(1)
     print "client: sending %s to proposers" % (value)
-    s.sendto(str({'stage':'1a', 'v':value}), config['proposers'])
+    s.sendto(str({'stage':'1a', 'v':value,}), config['proposers'])
   print 'client done.'
 
 
