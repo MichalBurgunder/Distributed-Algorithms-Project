@@ -251,11 +251,11 @@ def learner(config, id):
   while True:
     msg = r.recv(2**16)
     msg = ast.literal_eval(msg)
-    print("learners receive:",msg)
+    #print("learners receive:",msg)
     if msg:
       print(msg['v_val'])
       msg = None
-    #sys.stdout.flush()
+    sys.stdout.flush()
 
 
 def client(config, id):
