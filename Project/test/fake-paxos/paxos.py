@@ -254,7 +254,7 @@ def client(config, id):
   for value in sys.stdin:
     value = value.strip()
     print("Letting client sleep 1sec...")
-    time.sleep(1)
+    #time.sleep(1)
     print "client: sending %s to proposers" % (value)
     s.sendto(str({'stage':'1a', 'v':value,}), config['proposers'])
   print 'client done.'
