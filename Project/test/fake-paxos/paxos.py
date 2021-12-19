@@ -173,7 +173,6 @@ def proposer(config, id):
             'v_rnd2' : []
           }
           msg_1a = {'stage':'1a'}
-          # randomly increase the c_rnd as initiate
           pro_states['c_rnd'] = pro_states['c_rnd'] + 1
           msg_1a['c_rnd'] = pro_states['c_rnd']
           intial_v = msg_client['v']
@@ -218,24 +217,15 @@ def proposer(config, id):
         print("Proposer v_rnd2",pro_states['v_rnd2'])
         print("Proposer v_val2",pro_states['v_val2'])
         if len(pro_states['v_rnd2']) >= majority and len(pro_states['v_val2']) >= majority:
-          print("hallo")
           if set(pro_states['v_rnd2']) == set([pro_states['c_rnd']]):
             msg_dec['v_val'] = pro_states['c_val']
-            print("cute")
           else:
             msg_dec['v_val'] = ''
-            print("cuter")
-          print("send")
           s.sendto(str(msg_dec), config['learners'])
-          print("sleep")
-          time.sleep(3)
           # decide proposer
-          print("sleep")
           print("send decision message:",msg_dec)
-          print("send")
           client_msg.pop(0)
           print("Proposer ",id," remaining client message:",client_msg)
-          print("pop")
           in_propose = False
           a_done = False
           b_done = False
