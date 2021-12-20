@@ -186,8 +186,7 @@ def proposer(config, id):
           msg_2a['c_val'] = pro_states['c_val']
           s.sendto(msg_2a, config['acceptors'])
           time.sleep(1)
-          print("send 2a message")
-          print(msg_2a)
+          print("Proposer ",id, "send 2a message",msg_2a)
         elif msg['stage'] == '2b':
           # 2b & decision
           msg_dec = {}
